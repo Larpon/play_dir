@@ -15,6 +15,7 @@
 
 REPORT_ERRORS=0
 RNDM=1
+RECURSE=1
 CURRENT_DIR=`pwd`
 #SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -41,8 +42,13 @@ usage()
 	echo "Options:"
 
 	echo -e "\t-r"
+	echo -e "\t\tRecurse"
+	echo -e "\t\tPlay files found in subdirs as well"
+	echo -e "\r"
+	
+	echo -e "\t-m"
 	echo -e "\t\tRandom"
-	echo -e "\t\tPlay files in directory in random order"
+	echo -e "\t\tPlay files in random order"
 	echo -e "\r"
 
 # 	echo
@@ -75,10 +81,11 @@ check_exes()
 [ "$#" -gt 0 ] || die "Arguments required, $# provided"
 check_exes
 
-while getopts "r" OPTION
+while getopts "rm" OPTION
 do
 	case $OPTION in
-		r ) RNDM=0;;
+		r ) RECURSE=0;;
+		m ) RNDM=0;;
 		* ) die "One or more options not recognized...";; # DEFAULT
 	esac
 done
@@ -94,16 +101,19 @@ CIFS=$IFS
 IFS=$'\n'
 INDEX=1
 
-
+depth="-maxdepth 1"
 sort_cmd="sort -zk 1n"
 if [ $RNDM -eq 0 ]; then
 	sort_cmd="sort -Rz"
 fi
+if [ $RECURSE -eq 0 ]; then
+	depth=""
+fi
 TOTAL=$((($(ls -l $1 | grep -v ".directory" | wc -l)-1)))
 
-for FILE in $(find $1 -type f -printf '%T@ %p\0' | eval $sort_cmd | sed -z 's/^[^ ]* //' |xargs -0n1 | grep -v ".directory"); do
-#for FILE in $(find $1 -type f -printf '%T@ %p\0' | sort -Rz | sed -z 's/^[^ ]* //' |xargs -0n1 | grep -v ".directory"); do
-#for FILE in $(find $1 -type f -printf '%T@ %p\0' | sort -zk 1n | sed -z 's/^[^ ]* //' |xargs -0n1 | grep -v ".directory"); do
+for FILE in $(eval "find \"$1\" $depth -type f -printf '%T@ %p\0'" | eval $sort_cmd | sed -z 's/^[^ ]* //' | xargs -0n1 | grep -v ".directory"); do
+#for FILE in $(find $1 -type f -printf '%T@ %p\0' | sort -Rz | sed -z 's/^[^ ]* //' | xargs -0n1 | grep -v ".directory"); do
+#for FILE in $(find $1 -type f -printf '%T@ %p\0' | sort -zk 1n | sed -z 's/^[^ ]* //' | xargs -0n1 | grep -v ".directory"); do
 	if (( $INDEX >= $FROM_INDEX )); then
 		INFO=$(mplayer -vo null -ao null -frames 0 -identify "$FILE" 2>/dev/null | sed -ne '/^ID_/ { s/[]()|&;<>`'"'"'\\!$" []/\\&/g;p }')
 		LENGTH=$(echo "$INFO" | grep "ID_LENGTH" | sed 's/ID_LENGTH\=//')
